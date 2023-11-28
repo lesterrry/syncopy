@@ -1,71 +1,119 @@
-use std::collections::HashMap;
-use std::{env, panic, process};
-use std::fs::File;
-use std::io::prelude::*;
-use chrono::{NaiveDateTime};
+use chrono::{NaiveDateTime, Utc};
 use clap::{App, Arg};
 use regex::Regex;
-
-use crate::tools::get_latest_backup;
+use std::{env, panic, process};
 
 mod api;
+mod config;
+mod pack;
 mod tools;
 
-const BACKUP_FILE_REGEX: &str = "/SYNCOPY_BACKUP_(\\d{2}_\\d{2}_\\d{4}_\\d{2}_\\d{2}).tar/gm";
+const BACKUP_FILE_REGEX: &str = "SYNCOPY_BACKUP_(\\d{2}_\\d{2}_\\d{4}_\\d{2}_\\d{2}).tar.gz";
+const BACKUP_FILE_PREFIX: &str = "SYNCOPY_BACKUP";
 const DATE_FORMAT: &str = "%d_%m_%Y_%H_%M";
-
+const CONFIG_FILE_NAME: &str = "config.toml";
 
 #[derive(Clone)]
+#[allow(dead_code)]
 struct Backup {
     name: String,
-    created_at: NaiveDateTime
+    created_at: NaiveDateTime,
+    disk_path: Option<String>,
 }
 
 #[tokio::main]
 async fn main() {
     // Setting hook to panic prettier
-	panic::set_hook(Box::new(move |panic_info| {
-		eprintln!("FATAL: {}", panic_info);
-		process::exit(1);
-	}));
+    panic::set_hook(Box::new(move |panic_info| {
+        eprintln!("FATAL: {}", panic_info);
+        process::exit(1);
+    }));
 
     let matches = App::new(env!("CARGO_PKG_NAME"))
-		.version(env!("CARGO_PKG_VERSION"))
-		.author(env!("CARGO_PKG_AUTHORS"))
-		.about("Backup utility tethered with Yandex Disk")
-		.arg(
-			Arg::with_name("verbose")
-                .short("v")
-                .long("verbose")
-				.help("display rich output info")
-				.required(false)
-		)
-		.get_matches();
+        .version(env!("CARGO_PKG_VERSION"))
+        .author(env!("CARGO_PKG_AUTHORS"))
+        .about("Backup utility tethered with Yandex Disk")
+        .arg(
+            Arg::with_name("quiet")
+                .short("q")
+                .long("quiet")
+                .help("do not output logs")
+                .required(false),
+        )
+        .get_matches();
 
-    let logger = tools::Logger{ verbose: true};//matches.is_present("verbose") };
-    
+    let quiet = matches.is_present("quiet");
+
+    let logger = tools::Logger { enabled: !quiet };
+
     logger.log("Initializing...");
+    let config = config::Config::parse(CONFIG_FILE_NAME)
+        .unwrap_or_else(|e| panic!("Config parse error: {}", e));
     let token: String =
-    tools::get_token().unwrap_or_else(|e| panic!("Env var 'SYNCOPY_YADISK_OAUTH_TOKEN' was not found, and file '.token' failed to open.\n{}", e));
+        tools::get_disk_token(Some(&config))
+            .unwrap_or_else(|e| panic!("Env var 'SYNCOPY_YADISK_OAUTH_TOKEN' was not found, config had no token, and file '.disk_token' failed to open:\n{}", e));
 
     let api = api::DiskApi::new(token);
 
-    logger.log("Reading backup directory...");
+    logger.log("Getting previous backups...");
     let dir_contents = api.get_directory_contents(None).await.unwrap();
+    println!("{:?}", dir_contents);
 
     let filtered: Vec<Backup> = dir_contents
         .iter()
-        .filter(|i| Regex::new(BACKUP_FILE_REGEX).unwrap().is_match(&i.name))
-        .map(|i| Backup{name: i.name.clone(), created_at: NaiveDateTime::parse_from_str(&i.name, DATE_FORMAT).expect("Date parse error")})
+        .filter(|i| {
+            println!("{}", i.name);
+            Regex::new(BACKUP_FILE_REGEX).unwrap().is_match(&i.name)
+        })
+        .map(|i| Backup {
+            name: i.name.clone(),
+            created_at: NaiveDateTime::parse_from_str(
+                &i.name,
+                &tools::construct_backup_file_name(BACKUP_FILE_PREFIX, DATE_FORMAT),
+            )
+            .expect("Date parse error"),
+            disk_path: Some(i.path.clone()),
+        })
         .collect();
 
-    let latest_created_at =
-        if let Some(latest) = get_latest_backup(&filtered) {
-            latest.created_at.format(DATE_FORMAT).to_string()
-        } else {
-            "never".to_string()
-        };
-    
-    logger.log(&format!("  Total backups: {}\n  Latest backup: {}", filtered.len(), latest_created_at));
-    println!("{:?}", dir_contents)
+    let latest_created_at = if let Some(latest) = tools::get_latest_backup(&filtered) {
+        latest.created_at.format("%d.%m.%Y %H:%M").to_string()
+    } else {
+        "never".to_string()
+    };
+
+    logger.log(&format!(
+        "  Total backups: {}\n  Latest backup: {}",
+        filtered.len(),
+        latest_created_at
+    ));
+
+    logger.log(&format!(
+        "Preparing to backup directory '{}'...",
+        config.backups.input_directory
+    ));
+
+    let current_date = Utc::now().naive_utc();
+    let output_file_name = tools::construct_backup_file_name(
+        BACKUP_FILE_PREFIX,
+        &current_date.format(DATE_FORMAT).to_string(),
+    );
+    let output_file = format!("{}{}", config.backups.output_directory, output_file_name);
+    let input_directory = config.backups.input_directory;
+
+    logger.log(&format!("Packing into file '{}'...", output_file));
+
+    pack::pack_folder(&input_directory, &output_file, !quiet)
+        .unwrap_or_else(|e| panic!("Pack failed:\n{}", e));
+
+    logger.log("Preparing upload...");
+
+    let upload_operation = api.get_upload_operation(&output_file_name).await.unwrap();
+    logger.log(&format!("Uploading to {}...", upload_operation.href));
+
+    api.upload_file(&upload_operation.href, &output_file)
+        .await
+        .unwrap();
+
+    logger.log("Done")
 }

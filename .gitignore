@@ -1,2 +1,4 @@
 /target
-.token
+config.toml
+*.tar.gz
+.DS_Store
