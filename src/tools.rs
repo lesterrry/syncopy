@@ -1,3 +1,5 @@
+use chrono::NaiveDateTime;
+
 use crate::{config::Config, Backup};
 use std::{cmp::Ordering, env, error::Error, fs::File, io::Read};
 
@@ -19,7 +21,7 @@ pub fn get_disk_token(config: Option<&Config>) -> Result<String, Box<dyn Error>>
 }
 
 pub fn get_latest_backup(backups: &[Backup]) -> Option<&Backup> {
-    backups.iter().max_by(|a, b| {
+    backups.iter().min_by(|a, b| {
         let date_cmp = b.created_at.date().cmp(&a.created_at.date());
         if date_cmp == Ordering::Equal {
             b.created_at.time().cmp(&a.created_at.time())
@@ -33,14 +35,25 @@ pub fn construct_backup_file_name(prefix: &str, date: &str) -> String {
     format!("{}_{}.tar.gz", prefix, date)
 }
 
+pub fn get_delta_string(a: NaiveDateTime, b: NaiveDateTime) -> String {
+    let duration = a.signed_duration_since(b);
+    let minutes = duration.num_minutes();
+    match minutes {
+        0..=59 => format!("{}m", minutes),
+        60..=1439 => format!("{}h", duration.num_hours()),
+        1440..=10079 => format!("{}d", duration.num_days()),
+        _ => format!("{}w", duration.num_days()),
+    }
+}
+
 pub struct Logger {
     pub enabled: bool,
 }
 
 impl Logger {
-    pub fn log(&self, message: &str) {
+    pub fn log<T: AsRef<str>>(&self, message: T) {
         match &self.enabled {
-            true => println!("{}", message),
+            true => println!("{}", message.as_ref()),
             false => return,
         }
     }

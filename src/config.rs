@@ -8,11 +8,6 @@ pub struct Backups {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct Cronitor {
-    pub enabled: bool,
-}
-
-#[derive(Deserialize, Debug)]
 pub struct Secrets {
     pub disk_token: Option<String>,
     pub cronitor_token: Option<String>,
@@ -21,7 +16,6 @@ pub struct Secrets {
 #[derive(Deserialize, Debug)]
 pub struct Config {
     pub backups: Backups,
-    pub cronitor: Cronitor,
     pub secrets: Secrets,
 }
 

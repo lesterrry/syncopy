@@ -2,9 +2,6 @@
 input_directory = "/Users/volchok/Downloads/123"
 output_directory = "./"
 
-[cronitor]
-enabled = false
-
 [secrets]
 disk_token = "1234"
 cronitor_token = "4321"

@@ -1,7 +1,7 @@
 use chrono::{NaiveDateTime, Utc};
 use clap::{App, Arg};
 use regex::Regex;
-use std::{env, panic, process};
+use std::{env, fs, panic, process, time::Instant};
 
 mod api;
 mod config;
@@ -13,7 +13,7 @@ const BACKUP_FILE_PREFIX: &str = "SYNCOPY_BACKUP";
 const DATE_FORMAT: &str = "%d_%m_%Y_%H_%M";
 const CONFIG_FILE_NAME: &str = "config.toml";
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[allow(dead_code)]
 struct Backup {
     name: String,
@@ -47,6 +47,7 @@ async fn main() {
     let logger = tools::Logger { enabled: !quiet };
 
     logger.log("Initializing...");
+    let start = Instant::now();
     let config = config::Config::parse(CONFIG_FILE_NAME)
         .unwrap_or_else(|e| panic!("Config parse error: {}", e));
     let token: String =
@@ -57,14 +58,10 @@ async fn main() {
 
     logger.log("Getting previous backups...");
     let dir_contents = api.get_directory_contents(None).await.unwrap();
-    println!("{:?}", dir_contents);
 
     let filtered: Vec<Backup> = dir_contents
         .iter()
-        .filter(|i| {
-            println!("{}", i.name);
-            Regex::new(BACKUP_FILE_REGEX).unwrap().is_match(&i.name)
-        })
+        .filter(|i| Regex::new(BACKUP_FILE_REGEX).unwrap().is_match(&i.name))
         .map(|i| Backup {
             name: i.name.clone(),
             created_at: NaiveDateTime::parse_from_str(
@@ -76,8 +73,10 @@ async fn main() {
         })
         .collect();
 
+    let current_date = Utc::now().naive_utc();
     let latest_created_at = if let Some(latest) = tools::get_latest_backup(&filtered) {
-        latest.created_at.format("%d.%m.%Y %H:%M").to_string()
+        let delta = tools::get_delta_string(current_date, latest.created_at);
+        latest.created_at.format("%d.%m.%Y %H:%M").to_string() + &format!(" ({} ago)", delta)
     } else {
         "never".to_string()
     };
@@ -93,7 +92,6 @@ async fn main() {
         config.backups.input_directory
     ));
 
-    let current_date = Utc::now().naive_utc();
     let output_file_name = tools::construct_backup_file_name(
         BACKUP_FILE_PREFIX,
         &current_date.format(DATE_FORMAT).to_string(),
@@ -111,9 +109,23 @@ async fn main() {
     let upload_operation = api.get_upload_operation(&output_file_name).await.unwrap();
     logger.log(&format!("Uploading to {}...", upload_operation.href));
 
-    api.upload_file(&upload_operation.href, &output_file)
+    let destination = api
+        .upload_file(&upload_operation.href, &output_file)
         .await
         .unwrap();
 
-    logger.log("Done")
+    logger.log(if destination.is_some() {
+        format!(
+            "  Available at https://disk.yandex.ru/client{}",
+            destination.unwrap()
+        )
+    } else {
+        "Upload done".to_string()
+    });
+
+    logger.log("Cleaning...");
+
+    fs::remove_file(output_file).unwrap_or_else(|e| panic!("Deletion failed:\n{}", e));
+
+    logger.log(format!("  Done in {}s", start.elapsed().as_secs_f32()))
 }

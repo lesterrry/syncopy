@@ -77,13 +77,22 @@ impl DiskApi {
         let response_text = &self.get_request_text(&endpoint).await?;
 
         let response = serde_json::from_str::<UploadOperation>(&response_text)?;
-        assert!(!response.href.is_empty());
-        assert!(response.method == "PUT");
+        if response.href.is_empty() || response.method != "PUT" {
+            return Err(format!(
+                "Couldn't get upload operation (method: {}, href: {})",
+                response.href, response.method
+            )
+            .into());
+        }
 
         Ok(response)
     }
 
-    pub async fn upload_file(&self, url: &str, file_path: &str) -> Result<(), Box<dyn Error>> {
+    pub async fn upload_file(
+        &self,
+        url: &str,
+        file_path: &str,
+    ) -> Result<Option<String>, Box<dyn Error>> {
         let mut file = File::open(file_path)?;
 
         let mut file_contents = Vec::new();
@@ -92,8 +101,14 @@ impl DiskApi {
 
         let response = &self.http_client.put(url).body(file_contents).send().await?;
         assert!(response.status() == 201 || response.status() == 202);
+        if response.status() != 201 && response.status() != 202 {
+            return Err(format!("Request failed with status {}", response.status()).into());
+        }
 
-        Ok(())
+        match response.headers()["location"].to_str() {
+            Ok(value) => Ok(Some(value.to_owned())),
+            Err(_) => Ok(None),
+        }
     }
 
     async fn get_request_text(&self, endpoint: &str) -> Result<String, Box<dyn Error>> {
