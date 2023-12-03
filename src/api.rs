@@ -112,12 +112,16 @@ impl DiskApi {
     }
 
     async fn get_request_text(&self, endpoint: &str) -> Result<String, Box<dyn Error>> {
-        let text = &self
+        let response = self
             .http_client
             .get(endpoint)
             .header(AUTHORIZATION, format!("OAuth {}", &self.token))
             .send()
-            .await?
+            .await?;
+        if !response.status().is_success() {
+            return Err(response.text().await.unwrap_or("Unknown response error".to_string()).into())
+        }
+        let text = response
             .text()
             .await?;
 

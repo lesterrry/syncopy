@@ -1,7 +1,7 @@
 use chrono::{NaiveDateTime, Utc};
 use clap::{App, Arg};
 use regex::Regex;
-use std::{env, fs, panic, process, time::Instant};
+use std::{env, fs, panic, process};
 
 mod api;
 mod config;
@@ -15,7 +15,7 @@ const CONFIG_FILE_NAME: &str = "config.toml";
 
 #[derive(Clone, Debug)]
 #[allow(dead_code)]
-struct Backup {
+pub struct Backup {
     name: String,
     created_at: NaiveDateTime,
     disk_path: Option<String>,
@@ -47,7 +47,7 @@ async fn main() {
     let logger = tools::Logger { enabled: !quiet };
 
     logger.log("Initializing...");
-    let start = Instant::now();
+    let current_date = Utc::now().naive_utc();
     let config = config::Config::parse(CONFIG_FILE_NAME)
         .unwrap_or_else(|e| panic!("Config parse error: {}", e));
     let token: String =
@@ -73,7 +73,6 @@ async fn main() {
         })
         .collect();
 
-    let current_date = Utc::now().naive_utc();
     let latest_created_at = if let Some(latest) = tools::get_latest_backup(&filtered) {
         let delta = tools::get_delta_string(current_date, latest.created_at);
         latest.created_at.format("%d.%m.%Y %H:%M").to_string() + &format!(" ({} ago)", delta)
@@ -99,10 +98,18 @@ async fn main() {
     let output_file = format!("{}{}", config.backups.output_directory, output_file_name);
     let input_directory = config.backups.input_directory;
 
+    let excluded = tools::parse_ignore_string(config.backups.exclude)
+        .unwrap_or_else(|e| panic!("Invalid exclusion config:\n{}", e));
+
     logger.log(&format!("Packing into file '{}'...", output_file));
 
-    pack::pack_folder(&input_directory, &output_file, !quiet)
+    let file_size = pack::pack_folder(&input_directory, &output_file, excluded, !quiet)
         .unwrap_or_else(|e| panic!("Pack failed:\n{}", e));
+
+    logger.log(format!(
+        "  File size: {}",
+        tools::get_bytes_string(file_size)
+    ));
 
     logger.log("Preparing upload...");
 
@@ -127,5 +134,8 @@ async fn main() {
 
     fs::remove_file(output_file).unwrap_or_else(|e| panic!("Deletion failed:\n{}", e));
 
-    logger.log(format!("  Done in {}s", start.elapsed().as_secs_f32()))
+    logger.log(format!(
+        "  Done in {}",
+        tools::get_delta_string(Utc::now().naive_utc(), current_date)
+    ))
 }

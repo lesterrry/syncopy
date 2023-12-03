@@ -5,12 +5,12 @@ use std::{error::Error, fs::File, io::Read};
 pub struct Backups {
     pub input_directory: String,
     pub output_directory: String,
+    pub exclude: Vec<String>
 }
 
 #[derive(Deserialize, Debug)]
 pub struct Secrets {
     pub disk_token: Option<String>,
-    pub cronitor_token: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]

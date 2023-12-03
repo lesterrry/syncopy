@@ -1,7 +1,7 @@
-use chrono::NaiveDateTime;
-
 use crate::{config::Config, Backup};
-use std::{cmp::Ordering, env, error::Error, fs::File, io::Read};
+use chrono::NaiveDateTime;
+use ignore::gitignore::{Gitignore, GitignoreBuilder};
+use std::{cmp::Ordering, env, error::Error, fs::File, io::Read, path::Path};
 
 pub fn get_disk_token(config: Option<&Config>) -> Result<String, Box<dyn Error>> {
     if let Ok(env_token) = env::var("SYNCOPY_YADISK_OAUTH_TOKEN") {
@@ -37,12 +37,38 @@ pub fn construct_backup_file_name(prefix: &str, date: &str) -> String {
 
 pub fn get_delta_string(a: NaiveDateTime, b: NaiveDateTime) -> String {
     let duration = a.signed_duration_since(b);
-    let minutes = duration.num_minutes();
-    match minutes {
-        0..=59 => format!("{}m", minutes),
-        60..=1439 => format!("{}h", duration.num_hours()),
-        1440..=10079 => format!("{}d", duration.num_days()),
-        _ => format!("{}w", duration.num_days()),
+    let seconds = duration.num_seconds();
+    match seconds {
+        0..=59 => format!("{}s", seconds),                     // 0 to 59 seconds
+        60..=3599 => format!("{}m", seconds / 60),             // 1 minute to 59 minutes
+        3600..=86399 => format!("{}h", seconds / 3600),        // 1 hour to 23 hours
+        86400..=604799 => format!("{}d", seconds / 86400),     // 1 day to 6 days
+        _ => format!("{}w", seconds / 604800),                 // 7 days and above
+    }
+}
+
+pub fn parse_ignore_string(patterns: Vec<String>) -> Result<Gitignore, Box<dyn Error>> {
+    let mut builder = GitignoreBuilder::new(Path::new("/"));
+    for i in patterns {
+        builder.add_line(None, &i)?;
+    }
+
+    Ok(builder.build()?)
+}
+
+pub fn get_bytes_string(bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = 1024 * KB;
+    const GB: u64 = 1024 * MB;
+
+    if bytes >= GB {
+        format!("{:.2} GB", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.2} MB", bytes as f64 / MB as f64)
+    } else if bytes >= KB {
+        format!("{:.2} KB", bytes as f64 / KB as f64)
+    } else {
+        format!("{} bytes", bytes)
     }
 }
 

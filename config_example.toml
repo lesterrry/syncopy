@@ -4,4 +4,3 @@ output_directory = "./"
 
 [secrets]
 disk_token = "1234"
-cronitor_token = "4321"
