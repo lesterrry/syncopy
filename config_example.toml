@@ -1,6 +1,10 @@
 [backups]
 input_directory = "/Users/volchok/Downloads/123"
 output_directory = "./"
+exclude = [
+    "node_modules",
+    "demo.html"
+]
 
 [secrets]
 disk_token = "1234"
