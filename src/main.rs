@@ -108,8 +108,6 @@ async fn main() {
         tools::get_bytes_string(file_size)
     ));
 
-    process::exit(0);
-
     logger.log("Preparing upload...");
 
     let upload_operation = api.get_upload_operation(&output_file_name).await.unwrap();
