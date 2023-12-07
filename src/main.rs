@@ -52,7 +52,7 @@ async fn main() {
         .unwrap_or_else(|e| panic!("Config parse error: {}", e));
     let token: String =
         tools::get_disk_token(Some(&config))
-            .unwrap_or_else(|e| panic!("Env var 'SYNCOPY_YADISK_OAUTH_TOKEN' was not found, config had no token, and file '.disk_token' failed to open:\n{}", e));
+            .unwrap_or_else(|e| panic!("Env var 'SYNCOPY_YADISK_OAUTH_TOKEN' was not found, config had no token, and file '.disk_token' failed to open: {}", e));
 
     let api = api::DiskApi::new(token);
 
@@ -86,30 +86,29 @@ async fn main() {
         latest_created_at
     ));
 
-    logger.log(&format!(
-        "Preparing to backup directory '{}'...",
-        config.backups.input_directory
-    ));
+    logger.log("Preparing backup...");
 
     let output_file_name = tools::construct_backup_file_name(
         BACKUP_FILE_PREFIX,
         &current_date.format(DATE_FORMAT).to_string(),
     );
     let output_file = format!("{}{}", config.backups.output_directory, output_file_name);
-    let input_directory = config.backups.input_directory;
+    let input_paths = config.backups.include;
 
     let excluded = tools::parse_ignore_string(config.backups.exclude)
-        .unwrap_or_else(|e| panic!("Invalid exclusion config:\n{}", e));
+        .unwrap_or_else(|e| panic!("Invalid exclusion config: {}", e));
 
     logger.log(&format!("Packing into file '{}'...", output_file));
 
-    let file_size = pack::pack_folder(&input_directory, &output_file, excluded, !quiet)
-        .unwrap_or_else(|e| panic!("Pack failed:\n{}", e));
+    let file_size = pack::pack_paths(&input_paths, &output_file, excluded, !quiet)
+        .unwrap_or_else(|e| panic!("Pack failed: {}", e));
 
     logger.log(format!(
         "  File size: {}",
         tools::get_bytes_string(file_size)
     ));
+
+    process::exit(0);
 
     logger.log("Preparing upload...");
 
@@ -132,7 +131,7 @@ async fn main() {
 
     logger.log("Cleaning...");
 
-    fs::remove_file(output_file).unwrap_or_else(|e| panic!("Deletion failed:\n{}", e));
+    fs::remove_file(output_file).unwrap_or_else(|e| panic!("Deletion failed: {}", e));
 
     logger.log(format!(
         "  Done in {}",

@@ -3,7 +3,7 @@ use std::{error::Error, fs::File, io::Read};
 
 #[derive(Deserialize, Debug)]
 pub struct Backups {
-    pub input_directory: String,
+    pub include: Vec<String>,
     pub output_directory: String,
     pub exclude: Vec<String>
 }

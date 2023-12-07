@@ -1,10 +1,16 @@
 [backups]
-input_directory = "/Users/volchok/Downloads/123"
-output_directory = "./"
+include = [
+    "/Users/lesterrry/Downloads/font/demo.html",
+    "/Users/lesterrry/Downloads/sticker.jpg",
+    "/Users/lesterrry/Downloads/font"
+]
 exclude = [
     "node_modules",
-    "demo.html"
+    "*.woff",
+    "40.jpg",
+    "/Users/lesterrry/Downloads/sticker.jpg"
 ]
+output_directory = "./"
 
 [secrets]
 disk_token = "1234"
