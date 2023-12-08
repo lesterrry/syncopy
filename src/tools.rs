@@ -77,10 +77,16 @@ pub struct Logger {
 }
 
 impl Logger {
-    pub fn log<T: AsRef<str>>(&self, message: T) {
-        match &self.enabled {
+    fn _log<T: AsRef<str>>(&self, message: T, force: bool) {
+        match self.enabled || force {
             true => println!("{}", message.as_ref()),
             false => return,
         }
+    }
+    pub fn log<T: AsRef<str>>(&self, message: T) {
+        self._log(message, false)
+    }
+    pub fn force_log<T: AsRef<str>>(&self, message: T) {
+        self._log(message, true)
     }
 }

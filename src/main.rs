@@ -164,7 +164,7 @@ async fn main() {
         }
     }
 
-    logger.log(format!(
+    logger.force_log(format!(
         "  Done in {}",
         tools::get_delta_string(Utc::now().naive_utc(), current_date)
     ))
