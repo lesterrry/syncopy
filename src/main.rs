@@ -12,7 +12,6 @@ const BACKUP_FILE_REGEX: &str = "SYNCOPY_BACKUP_(\\d{2}_\\d{2}_\\d{4}_\\d{2}_\\d
 const BACKUP_FILE_PREFIX: &str = "SYNCOPY_BACKUP";
 const DATE_FORMAT: &str = "%d_%m_%Y_%H_%M";
 const CONFIG_FILE_NAME: &str = "config.toml";
-const CLIENT_LINK_PREFIX: &str = "https://disk.yandex.ru/client";
 
 const QUIET_ARG_ID: &str = "quiet";
 const CHECK_ARG_ID: &str = "check";
@@ -147,12 +146,8 @@ async fn main() {
                 .await
                 .unwrap();
 
-            logger.log(if destination.is_some() {
-                format!(
-                    "  Available at {}{}",
-                    CLIENT_LINK_PREFIX,
-                    destination.unwrap()
-                )
+            logger.force_log(if destination.is_some() {
+                format!("  Available at {}", destination.unwrap())
             } else {
                 "Upload done".to_string()
             });

@@ -4,6 +4,7 @@ use serde_json::{from_value, Value};
 use std::{error::Error, fs::File, io::Read};
 
 pub const GENERIC_ENDPOINT: &str = "https://cloud-api.yandex.net/v1/disk";
+const CLIENT_LINK_PREFIX: &str = "https://disk.yandex.ru/client";
 
 #[derive(Deserialize, Debug, Clone)]
 #[allow(dead_code)]
@@ -106,7 +107,7 @@ impl DiskApi {
         }
 
         match response.headers()["location"].to_str() {
-            Ok(value) => Ok(Some(value.to_owned())),
+            Ok(value) => Ok(Some(CLIENT_LINK_PREFIX.to_owned() + &value)),
             Err(_) => Ok(None),
         }
     }
