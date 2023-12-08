@@ -33,13 +33,21 @@ pub fn pack_paths(
         }
     };
 
+    let should_ignore = |path: &Path, is_dir: bool| {
+        if let ignore::Match::Ignore(_) = exclude.matched_path_or_any_parents(path, is_dir) {
+            true
+        } else {
+            false
+        }
+    };
+
     for path in input_paths {
         let path = Path::new(&path);
         let is_dir = path.is_dir();
         let container = path.parent().unwrap_or(Path::new("/"));
         let name = path.strip_prefix(container)?;
 
-        if let ignore::Match::Ignore(_) = exclude.matched_path_or_any_parents(path, is_dir) {
+        if should_ignore(path, is_dir) {
             continue;
         }
 
@@ -51,7 +59,7 @@ pub fn pack_paths(
                 let name = entry_path.strip_prefix(container)?;
                 let is_file = entry_path.is_file();
 
-                if let ignore::Match::Ignore(_) = exclude.matched_path_or_any_parents(entry_path, is_dir) {
+                if should_ignore(entry_path, is_dir) {
                     continue;
                 }
 
@@ -66,6 +74,10 @@ pub fn pack_paths(
             tar.append_path_with_name(path, name)?;
             inc_circle();
         }
+    }
+
+    if total_count < 1 {
+        return Err("Nothing was packed".into());
     }
 
     tar.finish()?;
