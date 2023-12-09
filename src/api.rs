@@ -1,3 +1,4 @@
+use chrono::Duration;
 use reqwest::header::AUTHORIZATION;
 use serde::Deserialize;
 use serde_json::{from_value, Value};
@@ -100,8 +101,14 @@ impl DiskApi {
 
         file.read_to_end(&mut file_contents)?;
 
-        let response = &self.http_client.put(url).body(file_contents).send().await?;
-        assert!(response.status() == 201 || response.status() == 202);
+        let response = &self
+            .http_client
+            .put(url)
+            .timeout(std::time::Duration::from_secs(3600))
+            .body(file_contents)
+            .send()
+            .await?;
+
         if response.status() != 201 && response.status() != 202 {
             return Err(format!("Request failed with status {}", response.status()).into());
         }
@@ -120,11 +127,13 @@ impl DiskApi {
             .send()
             .await?;
         if !response.status().is_success() {
-            return Err(response.text().await.unwrap_or("Unknown response error".to_string()).into())
+            return Err(response
+                .text()
+                .await
+                .unwrap_or("Unknown response error".to_string())
+                .into());
         }
-        let text = response
-            .text()
-            .await?;
+        let text = response.text().await?;
 
         Ok(text.to_string())
     }
