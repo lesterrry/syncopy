@@ -35,6 +35,10 @@ pub fn construct_backup_file_name(prefix: &str, suffix: &str, date: &str) -> Str
     format!("{}_[{}]_{}.tar.gz", prefix, suffix, date)
 }
 
+pub fn construct_backup_file_regex(suffix: &str) -> String {
+    format!(r"SYNCOPY_BACKUP_\[{}\]_(\d{{2}}_\d{{2}}_\d{{4}}_\d{{2}}_\d{{2}}).tar.gz", suffix)
+}
+
 pub fn get_delta_string(a: NaiveDateTime, b: NaiveDateTime) -> String {
     let duration = a.signed_duration_since(b);
     let seconds = duration.num_seconds();

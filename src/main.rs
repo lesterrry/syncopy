@@ -8,7 +8,6 @@ mod config;
 mod pack;
 mod tools;
 
-const BACKUP_FILE_REGEX: &str = r"SYNCOPY_BACKUP_\[(\S+)\]_(\d{2}_\d{2}_\d{4}_\d{2}_\d{2}).tar.gz";
 const BACKUP_FILE_PREFIX: &str = "SYNCOPY_BACKUP";
 const DATE_FORMAT: &str = "%d_%m_%Y_%H_%M";
 const CONFIG_FILE_NAME: &str = "config.toml";
@@ -85,9 +84,11 @@ async fn main() {
     logger.log("Getting previous backups...");
     let dir_contents = api.get_directory_contents(None).await.unwrap();
 
+    let regex = tools::construct_backup_file_regex(&config.backups.output_suffix);
+
     let filtered: Vec<Backup> = dir_contents
         .iter()
-        .filter(|i| Regex::new(BACKUP_FILE_REGEX).unwrap().is_match(&i.name))
+        .filter(|i| Regex::new(&regex).unwrap().is_match(&i.name))
         .map(|i| Backup {
             name: i.name.clone(),
             created_at: NaiveDateTime::parse_from_str(
