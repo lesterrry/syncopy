@@ -8,7 +8,7 @@ mod config;
 mod pack;
 mod tools;
 
-const BACKUP_FILE_REGEX: &str = "SYNCOPY_BACKUP_(\\d{2}_\\d{2}_\\d{4}_\\d{2}_\\d{2}).tar.gz";
+const BACKUP_FILE_REGEX: &str = r"SYNCOPY_BACKUP_\[(\S+)\]_(\d{2}_\d{2}_\d{4}_\d{2}_\d{2}).tar.gz";
 const BACKUP_FILE_PREFIX: &str = "SYNCOPY_BACKUP";
 const DATE_FORMAT: &str = "%d_%m_%Y_%H_%M";
 const CONFIG_FILE_NAME: &str = "config.toml";
@@ -92,7 +92,11 @@ async fn main() {
             name: i.name.clone(),
             created_at: NaiveDateTime::parse_from_str(
                 &i.name,
-                &tools::construct_backup_file_name(BACKUP_FILE_PREFIX, DATE_FORMAT),
+                &tools::construct_backup_file_name(
+                    BACKUP_FILE_PREFIX,
+                    &config.backups.output_suffix,
+                    DATE_FORMAT,
+                ),
             )
             .expect("Date parse error"),
             disk_path: Some(i.path.clone()),
@@ -117,6 +121,7 @@ async fn main() {
 
         let output_file_name = tools::construct_backup_file_name(
             BACKUP_FILE_PREFIX,
+            &config.backups.output_suffix,
             &current_date.format(DATE_FORMAT).to_string(),
         );
         let output_file = format!("{}{}", config.backups.output_directory, output_file_name);

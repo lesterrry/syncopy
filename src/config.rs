@@ -4,8 +4,9 @@ use std::{error::Error, fs::File, io::Read};
 #[derive(Deserialize, Debug)]
 pub struct Backups {
     pub include: Vec<String>,
+    pub exclude: Vec<String>,
     pub output_directory: String,
-    pub exclude: Vec<String>
+    pub output_suffix: String
 }
 
 #[derive(Deserialize, Debug)]

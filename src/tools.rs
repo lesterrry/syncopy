@@ -31,8 +31,8 @@ pub fn get_latest_backup(backups: &[Backup]) -> Option<&Backup> {
     })
 }
 
-pub fn construct_backup_file_name(prefix: &str, date: &str) -> String {
-    format!("{}_{}.tar.gz", prefix, date)
+pub fn construct_backup_file_name(prefix: &str, suffix: &str, date: &str) -> String {
+    format!("{}_[{}]_{}.tar.gz", prefix, suffix, date)
 }
 
 pub fn get_delta_string(a: NaiveDateTime, b: NaiveDateTime) -> String {
