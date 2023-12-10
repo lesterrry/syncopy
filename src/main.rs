@@ -10,6 +10,7 @@ mod tools;
 
 const BACKUP_FILE_PREFIX: &str = "SYNCOPY_BACKUP";
 const DATE_FORMAT: &str = "%d_%m_%Y_%H_%M";
+const CONFIG_FILE_NAME: &str = "config.toml";
 
 const QUIET_ARG_ID: &str = "quiet";
 const CHECK_ARG_ID: &str = "check";
@@ -72,7 +73,7 @@ async fn main() {
 
     logger.log("Initializing...");
     let current_date = Utc::now().naive_utc();
-    let config = config::Config::parse(None)
+    let config = config::Config::parse(CONFIG_FILE_NAME)
         .unwrap_or_else(|e| panic!("Config parse error: {}", e));
     let token: String =
         tools::get_disk_token(Some(&config))
