@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use std::{error::Error, fs::File, io::Read};
+use std::{error::Error, fs::File, io::Read, env};
 
 #[derive(Deserialize, Debug)]
 pub struct Backups {
@@ -21,7 +21,10 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn parse(path: &str) -> Result<Self, Box<dyn Error>> {
+    pub fn parse(custom_path: Option<&str>) -> Result<Self, Box<dyn Error>> {
+        let default_path = format!("{}/config.toml", env::var("CARGO_MANIFEST_DIR").unwrap());
+        let path = custom_path.unwrap_or(&default_path);
+
         let mut file = File::open(path)?;
 
         let mut contents = String::new();
